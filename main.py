@@ -11,4 +11,3 @@ l = lg.build()
 
 for token in l.lex('256 - 12 + 15'):
     print(token)
-git
