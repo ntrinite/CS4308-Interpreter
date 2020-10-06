@@ -1,6 +1,6 @@
-import rply as rp;
+from rply import LexerGenerator
 
-lg = rp.LexerGenerator()
+lg = LexerGenerator()
 
 lg.add('NUMBER', r'\d+(\.\d+)?')
 lg.add('PLUS', r'\+')
