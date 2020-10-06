@@ -1,0 +1,30 @@
+from rply import LexerGenerator
+
+lg = LexerGenerator()
+
+#lg.add("NUMBER", r"\d+(\.\d+)?")
+lg.add("FLOAT", r"\d+\.\d+")
+lg.add("INT", r"[0-9]+")
+lg.add("PLUS", r"\+")
+lg.add("MINUS", r"\-")
+lg.add("MULTIPLICATION", r"\*")
+lg.add("DIVISION", r"/")
+lg.add("MODULO", r"\%")
+lg.add("EQUALS", r"=")
+lg.add("LPAREN", r"\(")
+lg.add("RPAREN", r"\)")
+lg.add("LBRACE", r"\{")
+lg.add("RBRACE", r"\}")
+lg.add("IF_CONDITIONAL", r"if")
+lg.add("ELSE", r"else")
+lg.add("GREATER_THAN", r">")
+lg.add("LESS_THAN", r"<")
+lg.add("GREATER_EQUAL", r">=")
+lg.add("LESS_EQUAL", r"<=")
+lg.add("VAR_NAME", r"[a-zA-z_][a-zA-Z0-9_]*")
+lg.add("PRINT", r"print")
+lg.add("END_INSTRUTION",r";")
+
+lg.ignore(r"\s+")
+l = lg.build()
+
