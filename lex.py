@@ -4,7 +4,6 @@ lg = LexerGenerator()
 
 lg.add("BEGIN_STATEMENT", r"begin")
 lg.add("END_STATEMENT", r"end")
-
 lg.add("FLOAT_LITERAL", r"\d+\.\d+")
 lg.add("INTEGER_LITERAL", r"[0-9]+")
 lg.add("STRING_LITERAL", r"\".*\"")
@@ -47,7 +46,9 @@ lg.add("APOSTROPHE_OPERATOR", r"\'")
 lg.add("DOT_OPERATOR", r"\.")
 lg.add("VAR_NAME", r"[a-zA-Z_][a-zA-Z0-9_]*")
 
+#ignores whitespce
 lg.ignore(r"\s+")
 
 l = lg.build()
+
 
