@@ -1,11 +1,24 @@
+procedure Hello is
 beenis : Integer := 5;
+weenis : Character := 'b';
+creenis : Boolean := true;
+sleenis : Boolean := false;
+i : Integer := 0;
+begin
 if beenis <= 6 then
     Put_Line("Hello World");
 else
     Put_Line("Goodbye World");
 end if;
 
-weenis := 'b';
+if creenis then
+    Put_Line("Creenis");
+else
+    Put_Line("Sleenis");
+end if;
 
-creenis := true;
-sleenis := false;
+while i < 10 loop
+    Put_Line("What's up famsquad? This is famsquad number" & Integer'IMAGE(i + 1));
+    i := i + 1;
+end loop;
+end Hello;
