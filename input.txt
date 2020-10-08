@@ -1,5 +1,5 @@
 procedure Hello is
-beenis : Integer := 5;
+beenis : Integer := 25;
 weenis : Character := 'b';
 creenis : Boolean := true;
 sleenis : Boolean := false;
