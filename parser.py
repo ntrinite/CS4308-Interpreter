@@ -7,9 +7,4 @@ file = open(file_path, 'r')
 status = []
 
 for token in l.lex(file.read()):
-    switch = {
-        'VAR_NAME' : VarState(token.value)
-    }
-
-
-def VarState(value)
+    print(token.name)
