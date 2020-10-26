@@ -6,7 +6,8 @@ class TokenStatus:
 
     def getCurrentToken(self):
         if self.tokenIndex >= len(self.tokens):
-            return None
+            raise Exception("Unexpected end of file after " + str(self.getPrevToken()))
+            # return None
         else:
             return self.tokens[self.tokenIndex]
 
@@ -24,4 +25,6 @@ class TokenStatus:
 
     def goNext(self):
         newStatus = TokenStatus(self.tokens, self.tokenIndex + 1)
+        # if self.getNextToken() is None:
+        #     raise Exception("Unexpected end of file after " + str(self.tokens[self.tokenIndex]))
         return newStatus
