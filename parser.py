@@ -86,13 +86,65 @@ def string_expression(tokenStatus):
     # now must have another string expression next, recursing
     return string_expression(tokenStatus)
 
+
+
+'''
+def bool_expression(tokenStatus):
+    originalStatus = tokenStatus
+    name = tokenStatus.getCurrentToken().name
+
+    if name  == 'BOOLEAN_LITERAL':
+        tokenStatus = tokenStatus.goNext()
+        return tokenStatus
+    else:
+        return originalStatus
+
+    if name == 'INTEGER_LITERAL':
+        tokenStatus = tokenStatus.goNext()
+        #MAY BE ABLE TO USE RELOP STATEMENT INSIDE THIS INSTEAD OF DOING AN IF THING
+        relop()
+    else:
+        return originalStatus
+
+#SPACE FOR RELOP STUFF IF TOO LAZY TO FIGURE OUT IF I CAN USE RELOP FUNCTION
+    if name == '
+'''
+
 def arithmetic_op(tokenStatus):
     name = tokenStatus.getCurrentToken().name
-    if (name == 'PLUS' or name == 'MINUS' or name == 'DIVISION' or name == 'MULTIPLICATION'):
+    if (name == 'PLUS' or name == 'MINUS' or name == 'DIVISION' or name == 'MULTIPLICATION' or name = 'MODULO'):
         tokenStatus = tokenStatus.goNext()
 
     return tokenStatus
 
+def relop(tokenStatus):
+    name = tokenStatus.getCurrentToken().name
+    if(name == 'GREATER_THEN' or name == 'LESS_THEN' or name == 'GREATER_EQUAL' or name == 'LESS_EQUAL')
+        tokenStatus = tokenStatus.goNext()
+
+    return tokenStatus
+
+#<assignment_statement> -> <Var_Name>:= <expression>
+def assignment_statement(tokenStatus):
+    originalStatus = tokenStatus
+    name = tokenStatus.getCurrentToken().name
+    if(name = 'ASSIGNMENT')
+        tokenStatus = string_expression(tokenStatus)
+        if(tokenStatus == originalStatus)
+            unexpected_char_exception(tokenStatus, "<string_expression>")
+        '''
+        tokenStatus = bool_expression(tokenStatus)
+        if(tokenStatus == originalStatus)
+            unexpected_char_exception(tokenStatus, "<bool_expression>")
+
+        tokenStatus = int_expression(tokenStatus)
+        if(tokenStatus == originalStatus)
+            unexpected_char_exception(tokenStatus, "<int_expression>")
+
+        tokenStatus = float_expression(tokenStatus)
+        if(tokenStatus == originalStatus)
+            unexpected_char_exception(tokenStatus, "<float_expression>")
+        '''
 def unexpected_char_exception(tokenStatus, expected):
     raise Exception("Expected '" + expected + "' at " + str(tokenStatus.getCurrentToken().source_pos) + ", received '" + tokenStatus.getCurrentToken().value + "'")
 
