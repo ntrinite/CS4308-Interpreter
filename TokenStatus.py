@@ -3,6 +3,7 @@ class TokenStatus:
     def __init__(self, tokens, index=0):
         self.tokens = tokens
         self.tokenIndex = index
+        self.value = None
 
     def getCurrentToken(self):
         if self.tokenIndex >= len(self.tokens):

@@ -13,6 +13,8 @@ tokens = list(l.lex(file.read()))
 # tokens = list(l.lex('Put_Line("Gaming"); Put_Line("More Gaming"); Put_Line("Surprise Surprise, " & "Yet More Gaming" & ", Wouldn\'t you know it");'))
 status = ts.TokenStatus(tokens)
 
+declared_vars = dict()
+
 #block needs some way to exit; isn't end all be all of all code
 def block(tokenStatus):
     originalStatus = tokenStatus
@@ -83,9 +85,9 @@ def print_statement(tokenStatus):
 # <declaration statement> -> <Var_Name> : <Type_Name> ; | <Var_Name> : <Type_Name> := <expression> ;
 def declaration_statement(tokenStatus):
     originalStatus = tokenStatus
-
     #Checks that the first token is a variable
     if tokenStatus.getCurrentToken().name == 'VAR_NAME':
+        var_name = tokenStatus.getCurrentToken().value
         tokenStatus = tokenStatus.goNext()
     else:
         print("No variable name, must not be declaration statement")
@@ -100,22 +102,51 @@ def declaration_statement(tokenStatus):
     # Checks for if the next token is a typename
     priorTokenStatus = tokenStatus
     tokenStatus = type_name(tokenStatus)
+    var_type = tokenStatus.getPrevToken().value
+    declared_vars[var_name] = {"type": var_type, "value": getDefaultValue(var_type)}
     if tokenStatus == priorTokenStatus:
         unexpected_char_exception(tokenStatus, "<TYPE_NAME>")
 
     # checks if the next token is either a semicolon (done) or a walrus
     if tokenStatus.getCurrentToken().name == "END_INSTRUCTION":
         print("<declaration_statement> -> <var_name> : <type_name> ;")
+        #adds varibale to the list of declared variables
+        declared_vars[var_name] = {"type": var_type, "value": getDefaultValue(var_type)}
         return tokenStatus.goNext()
-    elif tokenStatus.getCurrentToken().name == "ASSIGNMENT_OPERATOR":
+    elif tokenStatus.getCurrentToken().name == "ASSIGNMENT":
         print("<declaration_statement> -> <var_name> : <typename> := <expression> ;")
         tokenStatus = tokenStatus.goNext()
     else:
         unexpected_char_exception(tokenStatus, "';' or ':='")
 
     # Expression must be checked based on the typename
+    priorTokenStatus = tokenStatus
+    # if var_type == "Float":
+    #     tokenStatus = float_expression(tokenStatus)
+    # elif var_type == "Integer":
+    #     tokenStatus = int_expression(tokenStatus)
+    if var_type == "String":
+        tokenStatus = string_expression(tokenStatus)
+    # elif var_type == "Boolean":
+    #     tokenStatus = bool_expression(tokenStatus)
+    # elif var_type == "Character":
+    #     tokenStatus.char_expression(tokenStatus)
+    else:
+        raise BaseException("Invalid data type!")
 
-    return tokenStatus
+    if tokenStatus == priorTokenStatus:
+        unexpected_char_exception(tokenStatus, "<" + var_type + ">")
+
+    tokensInExpression = []
+
+    declared_vars[var_name] = {"type": var_type, "value":  tokenStatus.value}
+
+
+    if tokenStatus.getCurrentToken().name == "END_INSTRUCTION":
+        return tokenStatus.goNext()
+    else:
+        unexpected_char_exception(tokenStatus, ";")
+
 
 
 def type_name(tokenStatus):
@@ -129,13 +160,38 @@ def type_name(tokenStatus):
     else:
         return tokenStatus
 
+def getDefaultValue(data_type):
+    if (data_type == "String"):
+        return None
+    elif (data_type == "Integer"):
+        return 0
+    elif (data_type == "Float"):
+        return 0.0
+    elif (data_type == "Boolean"):
+        return False
+    elif (data_type == "Character"):
+        return "z"
+
 # <string expression> -> <string> | <string> & <string expression>
 def string_expression(tokenStatus):
     originalStatus = tokenStatus
+    string = None
     # first ensures that the first token is a string literal
     # WILL NEED TO ADD CHECKING IF IT IS A VARIABLE WITH A STRING VALUE ATTACHED
     if tokenStatus.getCurrentToken().name == 'STRING_LITERAL':
+        string = tokenStatus.getCurrentToken().value.replace("\"", "")
         tokenStatus = tokenStatus.goNext()
+    elif tokenStatus.getCurrentToken().name == 'VAR_NAME':
+        try:
+            var = declared_vars[tokenStatus.getCurrentToken().value]
+        except KeyError:
+            return originalStatus
+        if var["type"] == "String":
+            string = var["value"]
+            tokenStatus = tokenStatus.goNext()
+        else:
+            return originalStatus
+
     else:
         return originalStatus
 
@@ -145,11 +201,14 @@ def string_expression(tokenStatus):
         tokenStatus = tokenStatus.goNext()
         print("<string_expression> -> " + originalStatus.getCurrentToken().value + " & <string_expression>")
     else:
+        tokenStatus.value = string
         print("<string_expression> -> " + originalStatus.getCurrentToken().value)
         return tokenStatus
 
     # now must have another string expression next, recursing
-    return string_expression(tokenStatus)
+    tokenStatus = string_expression(tokenStatus)
+    tokenStatus.value = (string + tokenStatus.value)
+    return tokenStatus
 
 def arithmetic_op(tokenStatus):
     name = tokenStatus.getCurrentToken().name
@@ -162,3 +221,5 @@ def unexpected_char_exception(tokenStatus, expected):
     raise Exception("Expected '" + expected + "' at " + str(tokenStatus.getCurrentToken().source_pos) + ", received '" + tokenStatus.getCurrentToken().value + "'")
 
 block(status)
+for i in declared_vars:
+    print(i, declared_vars[i])

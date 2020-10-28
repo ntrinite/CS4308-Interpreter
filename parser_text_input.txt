@@ -2,4 +2,6 @@ Put_Line("Gaming");
 Put_Line("More Gaming");
 Put_Line("Surprise Surprise" & "Yet More Gaming");
 beenis : Integer;
-sleenis : String;
+sleenis : String := "Pokemon, " & "Gotta catch em all!";
+paula_deenis : String := sleenis & " Oooooo you're my best friend";
+weenis : Float;
