@@ -87,6 +87,21 @@ def string_expression(tokenStatus):
     return string_expression(tokenStatus)
 
 
+def int_expression(tokenStatus):
+    originalStatus = tokenStatus
+
+    if tokenStatus.getCurrentToken().name == 'INTEGER_LITERAL':
+        tokenStatus = tokensStaus.goNext()
+    else:
+        return originalStatus
+
+    if tokenStatus.getCurrentToken.name == 'LPAREN':
+        #INSERT LOGIC TO GET THE STUFF INBETWEEN
+        if tokenStatus.getNextToken().name != 'RPAREN':
+            raise Exception("No RPAREN")
+
+    return int_expression(tokenStatus)
+
 
 '''
 def bool_expression(tokenStatus):
