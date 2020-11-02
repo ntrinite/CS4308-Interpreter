@@ -32,6 +32,8 @@ def block(tokenStatus):
     block(tokenStatus)
     return tokenStatus
 
+#region Statements
+
 def statement(tokenStatus):
     originalStatus = tokenStatus
 
@@ -42,6 +44,11 @@ def statement(tokenStatus):
 
     print("<statement> -> <declaration_statement>")
     tokenStatus = declaration_statement(tokenStatus)
+    if tokenStatus != originalStatus:
+        return tokenStatus
+
+    print("<statement> -> <assignment_statement>")
+    tokenStatus = assignment_statement(tokenStatus)
     if tokenStatus != originalStatus:
         return tokenStatus
 
@@ -102,63 +109,27 @@ def declaration_statement(tokenStatus):
     # Checks for if the next token is a typename
     priorTokenStatus = tokenStatus
     tokenStatus = type_name(tokenStatus)
-    var_type = tokenStatus.getPrevToken().value
-    declared_vars[var_name] = {"type": var_type, "value": getDefaultValue(var_type)}
     if tokenStatus == priorTokenStatus:
         unexpected_char_exception(tokenStatus, "<TYPE_NAME>")
+    var_type = tokenStatus.getPrevToken().value
 
-    # checks if the next token is either a semicolon (done) or a walrus
+    #Assigns the default value for its data type to the variable
+    declared_vars[var_name] = {"type": var_type, "value": getDefaultValue(var_type)}
+
+
+    # checks if the next token is either a semicolon (done) or a walrus (do the partial assignment)
     if tokenStatus.getCurrentToken().name == "END_INSTRUCTION":
         print("<declaration_statement> -> <var_name> : <type_name> ;")
-        #adds varibale to the list of declared variables
-        declared_vars[var_name] = {"type": var_type, "value": getDefaultValue(var_type)}
         return tokenStatus.goNext()
     elif tokenStatus.getCurrentToken().name == "ASSIGNMENT":
-        print("<declaration_statement> -> <var_name> : <typename> := <expression> ;")
-        tokenStatus = tokenStatus.goNext()
-    else:
-        unexpected_char_exception(tokenStatus, "';' or ':='")
-
-    # Expression must be checked based on the typename
-    priorTokenStatus = tokenStatus
-    # if var_type == "Float":
-    #     tokenStatus = float_expression(tokenStatus)
-    # elif var_type == "Integer":
-    #     tokenStatus = int_expression(tokenStatus)
-    if var_type == "String":
-        tokenStatus = string_expression(tokenStatus)
-    # elif var_type == "Boolean":
-    #     tokenStatus = bool_expression(tokenStatus)
-    # elif var_type == "Character":
-    #     tokenStatus.char_expression(tokenStatus)
-    else:
-        raise BaseException("Invalid data type!")
-
-    if tokenStatus == priorTokenStatus:
-        unexpected_char_exception(tokenStatus, "<" + var_type + ">")
-
-    tokensInExpression = []
-
-    declared_vars[var_name] = {"type": var_type, "value":  tokenStatus.value}
-
-
-    if tokenStatus.getCurrentToken().name == "END_INSTRUCTION":
-        return tokenStatus.goNext()
+        print("<declaration_statement> -> <var_name> : <type_name> := <expression> ;")
+        #Know assignment_statement will go to the halfway; therefore will either throw error or complete, no change check needed
+        tokenStatus = assignment_statement(tokenStatus, var_name)
+        return tokenStatus
     else:
         unexpected_char_exception(tokenStatus, ";")
 
 
-
-def type_name(tokenStatus):
-    name = tokenStatus.getCurrentToken().name
-    if name == 'FLOAT_TYPENAME' or \
-            name == 'INTEGER_TYPENAME' or \
-            name == 'STRING_TYPENAME' or \
-            name == 'CHARACTER_TYPENAME' or \
-            name == 'BOOLEAN_TYPENAME':
-        return tokenStatus.goNext()
-    else:
-        return tokenStatus
 
 def getDefaultValue(data_type):
     if (data_type == "String"):
@@ -170,7 +141,67 @@ def getDefaultValue(data_type):
     elif (data_type == "Boolean"):
         return False
     elif (data_type == "Character"):
-        return "z"
+          return "z"
+
+# <assignment_statement> -> <Var_Name>:= <expression>
+def assignment_statement(tokenStatus, var_name = None):
+    originalStatus = tokenStatus
+
+    #when coming out of a declaration statement, this will not be done
+    if var_name == None:
+        #var_name not assigned, we are not coming out of a declaration statement; must check if the token is a variable name
+        print("<assignment_statement> -> <var_name> := <expression>")
+        name = tokenStatus.getCurrentToken().name
+        if name != "VAR_NAME":
+            return originalStatus
+        var_name = tokenStatus.getCurrentToken().value
+
+        #Makes sure the variable has been declared
+        try:
+            declared_vars[var_name]
+        except KeyError:
+            undeclared_variable_exception(tokenStatus)
+        tokenStatus = tokenStatus.goNext()
+
+    #Either coming from declaration or had a variable name; now MUST be assignment statement
+    if tokenStatus.getCurrentToken().name == "ASSIGNMENT":
+        tokenStatus = tokenStatus.goNext()
+    else:
+        unexpected_char_exception(tokenStatus, ":=")
+
+    var_type = declared_vars[var_name]["type"]
+    # Expression must be checked based on the typename
+    priorTokenStatus = tokenStatus
+    # if var_type == "Float":
+    #     tokenStatus = float_expression(tokenStatus)
+    if var_type == "Integer":
+        tokenStatus = int_expression(tokenStatus)
+    elif var_type == "String":
+        tokenStatus = string_expression(tokenStatus)
+    # elif var_type == "Boolean":
+    #     tokenStatus = bool_expression(tokenStatus)
+    # elif var_type == "Character":
+    #     tokenStatus.char_expression(tokenStatus)
+    else:
+        raise BaseException("Invalid data type!")
+
+    #AFTER ANY EXPRESSION, tokenStatus.value SHOULD BE EQUAL TO WHAT THE EXPRESSION EVALUATES AS
+    if tokenStatus == priorTokenStatus:
+        unexpected_char_exception(tokenStatus, "<" + var_type + ">")
+
+    #Updates the stored value of the variables
+    declared_vars[var_name] = {"type": var_type, "value":  tokenStatus.value}
+
+
+    if tokenStatus.getCurrentToken().name == "END_INSTRUCTION":
+        return tokenStatus.goNext()
+    else:
+        unexpected_char_exception(tokenStatus, ";")
+
+#endregion
+
+#region Expressions
+#AFTER ANY EXPRESSION, tokenStatus.value SHOULD BE EQUAL TO WHAT THE EXPRESSION EVALUATES AS
 
 # <string expression> -> <string> | <string> & <string expression>
 def string_expression(tokenStatus):
@@ -185,7 +216,7 @@ def string_expression(tokenStatus):
         try:
             var = declared_vars[tokenStatus.getCurrentToken().value]
         except KeyError:
-            return originalStatus
+            undeclared_variable_exception(tokenStatus)
         if var["type"] == "String":
             string = var["value"]
             tokenStatus = tokenStatus.goNext()
@@ -215,17 +246,30 @@ def int_expression(tokenStatus):
     originalStatus = tokenStatus
 
     if tokenStatus.getCurrentToken().name == 'INTEGER_LITERAL':
-        tokenStatus = tokensStaus.goNext()
+        declared_int = int(tokenStatus.getCurrentToken().value)
+        tokenStatus = tokenStatus.goNext()
+    elif tokenStatus.getCurrentToken().name == 'LPAREN':
+        print("<int_expression> -> (<int_expression>) ")
+        tokenStatus = tokenStatus.goNext()
+        priorTokenStatus = tokenStatus
+        tokenStatus = int_expression(tokenStatus)
+        declared_int = tokenStatus.value
+        if tokenStatus == priorTokenStatus:
+            return originalStatus
+        if tokenStatus.getCurrentToken().name != 'RPAREN':
+            raise unexpected_char_exception(tokenStatus, ")")
+    elif tokenStatus.getCurrentToken().name == 'VAR_NAME':
+        try:
+            var = declared_vars[tokenStatus.getCurrentToken().value]
+        except:
+            undeclared_variable_exception(tokenStatus)
+        declared_int = var["value"]
     else:
         return originalStatus
 
-    if tokenStatus.getCurrentToken.name == 'LPAREN':
-        #INSERT LOGIC TO GET THE STUFF INBETWEEN
-        if tokenStatus.getNextToken().name != 'RPAREN':
-            raise Exception("No RPAREN")
-
+    #Checking for
+    tokenStatus.value = declared_int
     return int_expression(tokenStatus)
-
 
 '''
 def bool_expression(tokenStatus):
@@ -249,43 +293,44 @@ def bool_expression(tokenStatus):
     if name == '
 '''
 
+#endregion
+
+#region Operators/Short Types
+
 def arithmetic_op(tokenStatus):
     name = tokenStatus.getCurrentToken().name
-    if (name == 'PLUS' or name == 'MINUS' or name == 'DIVISION' or name == 'MULTIPLICATION' or name = 'MODULO'):
+    if (name == 'PLUS' or name == 'MINUS' or name == 'DIVISION' or name == 'MULTIPLICATION' or name == 'MODULO'):
         tokenStatus = tokenStatus.goNext()
 
     return tokenStatus
 
 def relop(tokenStatus):
     name = tokenStatus.getCurrentToken().name
-    if(name == 'GREATER_THEN' or name == 'LESS_THEN' or name == 'GREATER_EQUAL' or name == 'LESS_EQUAL')
+    if(name == 'GREATER_THEN' or name == 'LESS_THEN' or name == 'GREATER_EQUAL' or name == 'LESS_EQUAL'):
         tokenStatus = tokenStatus.goNext()
 
     return tokenStatus
 
-#<assignment_statement> -> <Var_Name>:= <expression>
-def assignment_statement(tokenStatus):
-    originalStatus = tokenStatus
+def type_name(tokenStatus):
     name = tokenStatus.getCurrentToken().name
-    if(name = 'ASSIGNMENT')
-        tokenStatus = string_expression(tokenStatus)
-        if(tokenStatus == originalStatus)
-            unexpected_char_exception(tokenStatus, "<string_expression>")
-        '''
-        tokenStatus = bool_expression(tokenStatus)
-        if(tokenStatus == originalStatus)
-            unexpected_char_exception(tokenStatus, "<bool_expression>")
+    if name == 'FLOAT_TYPENAME' or \
+            name == 'INTEGER_TYPENAME' or \
+            name == 'STRING_TYPENAME' or \
+            name == 'CHARACTER_TYPENAME' or \
+            name == 'BOOLEAN_TYPENAME':
+        return tokenStatus.goNext()
+    else:
+        return tokenStatus
 
-        tokenStatus = int_expression(tokenStatus)
-        if(tokenStatus == originalStatus)
-            unexpected_char_exception(tokenStatus, "<int_expression>")
+#endregion
 
-        tokenStatus = float_expression(tokenStatus)
-        if(tokenStatus == originalStatus)
-            unexpected_char_exception(tokenStatus, "<float_expression>")
-        '''
+#region Exceptions
 def unexpected_char_exception(tokenStatus, expected):
     raise Exception("Expected '" + expected + "' at " + str(tokenStatus.getCurrentToken().source_pos) + ", received '" + tokenStatus.getCurrentToken().value + "'")
+
+def undeclared_variable_exception(tokenStatus):
+    raise Exception("'" + tokenStatus.getCurrentToken().value + "' has not been declared.")
+#endregion
 
 block(status)
 for i in declared_vars:
