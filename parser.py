@@ -1,7 +1,7 @@
 from lex import l
 import TokenStatus as ts
 
-file_path = "parser_text_input.txt"
+file_path = "int_expression.txt"
 
 file = open(file_path, 'r')
 
@@ -242,34 +242,58 @@ def string_expression(tokenStatus):
     return tokenStatus
 
 
-def int_expression(tokenStatus):
+def int_expression(tokenStatus, expectedTerminals):
     originalStatus = tokenStatus
 
-    if tokenStatus.getCurrentToken().name == 'INTEGER_LITERAL':
-        declared_int = int(tokenStatus.getCurrentToken().value)
-        tokenStatus = tokenStatus.goNext()
-    elif tokenStatus.getCurrentToken().name == 'LPAREN':
-        print("<int_expression> -> (<int_expression>) ")
-        tokenStatus = tokenStatus.goNext()
-        priorTokenStatus = tokenStatus
-        tokenStatus = int_expression(tokenStatus)
-        declared_int = tokenStatus.value
-        if tokenStatus == priorTokenStatus:
-            return originalStatus
-        if tokenStatus.getCurrentToken().name != 'RPAREN':
-            raise unexpected_char_exception(tokenStatus, ")")
-    elif tokenStatus.getCurrentToken().name == 'VAR_NAME':
-        try:
-            var = declared_vars[tokenStatus.getCurrentToken().value]
-        except:
-            undeclared_variable_exception(tokenStatus)
-        declared_int = var["value"]
-    else:
-        return originalStatus
+    tokens = getTokensTillTerminal(tokenStatus, expectedTerminals)
 
-    #Checking for
-    tokenStatus.value = declared_int
-    return int_expression(tokenStatus)
+    ops = []
+    nums = []
+    for i in tokens:
+        if arithmetic_op_names.__contains__(i.name):
+            ops.append(i)
+        else:
+            nums.append(int(i.value))
+
+    #TODO: Replace all recognized varnames with values, throw error on unexpected nonterminal
+
+    for opType in arithmetic_op_names:
+        numsIndex = 0
+        for op in ops:
+            if (op.name == opType):
+                nums[numsIndex] = calculate(nums[numsIndex], nums[numsIndex + 1], op.name)
+                nums.remove(nums[numsIndex + 1])
+            else:
+                numsIndex += 1
+    print(nums[0])
+    return nums[0]
+
+
+    # if tokenStatus.getCurrentToken().name == 'INTEGER_LITERAL':
+    #     declared_int = int(tokenStatus.getCurrentToken().value)
+    #     tokenStatus = tokenStatus.goNext()
+    # elif tokenStatus.getCurrentToken().name == 'LPAREN':
+    #     print("<int_expression> -> (<int_expression>) ")
+    #     tokenStatus = tokenStatus.goNext()
+    #     priorTokenStatus = tokenStatus
+    #     tokenStatus = int_expression(tokenStatus)
+    #     declared_int = tokenStatus.value
+    #     if tokenStatus == priorTokenStatus:
+    #         return originalStatus
+    #     if tokenStatus.getCurrentToken().name != 'RPAREN':
+    #         raise unexpected_char_exception(tokenStatus, ")")
+    # elif tokenStatus.getCurrentToken().name == 'VAR_NAME':
+    #     try:
+    #         var = declared_vars[tokenStatus.getCurrentToken().value]
+    #     except:
+    #         undeclared_variable_exception(tokenStatus)
+    #     declared_int = var["value"]
+    # else:
+    #     return originalStatus
+    #
+    # #Checking for
+    # tokenStatus.value = declared_int
+    # return int_expression(tokenStatus)
 
 '''
 def bool_expression(tokenStatus):
@@ -304,6 +328,8 @@ def arithmetic_op(tokenStatus):
 
     return tokenStatus
 
+arithmetic_op_names = ['MODULO', 'DIVISION', 'MULTIPLICATION', 'MINUS', 'PLUS']
+
 def relop(tokenStatus):
     name = tokenStatus.getCurrentToken().name
     if(name == 'GREATER_THEN' or name == 'LESS_THEN' or name == 'GREATER_EQUAL' or name == 'LESS_EQUAL'):
@@ -332,6 +358,32 @@ def undeclared_variable_exception(tokenStatus):
     raise Exception("'" + tokenStatus.getCurrentToken().value + "' has not been declared.")
 #endregion
 
-block(status)
+def getTokensTillTerminal(tokenStatus, terminalTokenNames):
+    tokens = [tokenStatus.getCurrentToken()]
+    tokenIter = tokenStatus
+    tokenIter = tokenIter.goNext()
+    while (not (tokenIter.getCurrentToken().name in terminalTokenNames)):
+        tokens.append(tokenIter.getCurrentToken())
+        tokenIter = tokenIter.goNext()
+
+    return tokens
+
+def calculate(val1, val2, operator):
+    if operator == "MODULO":
+        return val1 % val2
+    elif operator == "MULTIPLICATION":
+        return val1 * val2;
+    elif operator == "DIVISION":
+        return val1 // val2;
+    elif operator == "PLUS":
+        return val1 + val2
+    elif operator == "MINUS":
+        if val2 is None:
+            return -val1
+        else:
+            return val1 - val2
+
+#block(status)
+int_expression(status, "END_INSTRUCTION")
 for i in declared_vars:
     print(i, declared_vars[i])

@@ -6,4 +6,4 @@ sleenis : String := "Pokemon, " & "Gotta catch em all!";
 paula_deenis : String := sleenis & " Oooooo you're my best friend";
 sleenis := "Weeeeeyoooo";
 weenis : Float;
-Put_Line(paula_deenis);
+Put_Line(sleenis);
