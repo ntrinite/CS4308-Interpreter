@@ -1,7 +1,8 @@
 from lex import l
 import TokenStatus as ts
+import rply as rp
 
-file_path = "int_expression.txt"
+file_path = "parser_text_input.txt"
 
 file = open(file_path, 'r')
 
@@ -175,7 +176,7 @@ def assignment_statement(tokenStatus, var_name = None):
     # if var_type == "Float":
     #     tokenStatus = float_expression(tokenStatus)
     if var_type == "Integer":
-        tokenStatus = int_expression(tokenStatus)
+        tokenStatus = int_expression(tokenStatus, ["END_INSTRUCTION"])
     elif var_type == "String":
         tokenStatus = string_expression(tokenStatus)
     # elif var_type == "Boolean":
@@ -241,59 +242,106 @@ def string_expression(tokenStatus):
     tokenStatus.value = (string + tokenStatus.value)
     return tokenStatus
 
+# <int_expression> -> (<Integer_Literal> | <Integer_Var>) [<Arithmetic_Op> <int_expression>]
+def int_expression(tokenStatus, expectedTerminals, useStack = True):
+    """
 
-def int_expression(tokenStatus, expectedTerminals):
+    :param tokenStatus: general iterator
+    :param expectedTerminals: list of strings to stop the evaluation on
+    :param useStack: bool, must be set to false on internal recursion, true otherwise
+    :return: modified tokenStatus
+    """
     originalStatus = tokenStatus
 
-    tokens = getTokensTillTerminal(tokenStatus, expectedTerminals)
+    expressionTokens = getTokensTillTerminal(tokenStatus, expectedTerminals, useStack)
 
+    # Paren are acceptable becuase it implies returning from another int_expression, which will leave the parenthese
+    acceptableNumberTypes = ["VAR_NAME", "INTEGER_LITERAL", "LPAREN"]
+    binaryOrEnd = list(binary_arithmetic_op_names)
+    binaryOrEnd.extend(expectedTerminals)
     ops = []
     nums = []
-    for i in tokens:
-        if arithmetic_op_names.__contains__(i.name):
-            ops.append(i)
+
+    #Checks if it should convert any binary minuses into unary negatives
+    pastFirstToken = False
+    tempStatus = tokenStatus
+    for i in expressionTokens:
+        if i.name == "MINUS" and (not pastFirstToken or not tempStatus.getPrevToken().name in acceptableNumberTypes):
+            i.name = "NEGATIVE"
+        pastFirstToken = True
+        tempStatus = tempStatus.goNext()
+
+    pastFirstToken = False
+    while tokenStatus.getCurrentToken() in expressionTokens:
+        if tokenStatus.getCurrentToken().name in unary_arithmetic_op_names:
+            if not tokenStatus.getNextTokenNotIn(unary_arithmetic_op_names).name in acceptableNumberTypes:
+                unaccepted_operand_exception(tokenStatus.getCurrentToken(), [tokenStatus.getNextTokenNotIn(unary_arithmetic_op_names)])
+            else:
+                ops.append(tokenStatus.getCurrentToken())
+                print("<int_expression> -> <unary_arithmetic_op>")
+                print("<unary_arithmetic_op> -> " + tokenStatus.getCurrentToken().name)
+        elif tokenStatus.getCurrentToken().name in binary_arithmetic_op_names:
+            if not pastFirstToken:
+                Exception("Operator '" + i.value + "' not unary")
+            elif (not tokenStatus.getPrevToken().name in acceptableNumberTypes and tokenStatus.getPrevToken().name != "RPAREN") \
+                or not tokenStatus.getNextTokenNotIn(unary_arithmetic_op_names).name in acceptableNumberTypes:
+                    unaccepted_operand_exception(tokenStatus.getCurrentToken(), [tokenStatus.getPrevToken(), tokenStatus.getNextToken()])
+            ops.append(tokenStatus.getCurrentToken())
+            print("<int_expression> -> <binary_arithmetic_op>")
+            print("<binary_arithmetic_op> -> " + tokenStatus.getCurrentToken().name)
+        elif tokenStatus.getCurrentToken().name == "VAR_NAME":
+            try:
+                if declared_vars[tokenStatus.getCurrentToken().value]["type"] != "Integer":
+                    unexpected_char_exception(tokenStatus, "<Integer>")
+                nums.append(declared_vars[tokenStatus.getCurrentToken().value]["value"])
+                tokenStatus.expect(binaryOrEnd)
+                print("<int_expression> -> VAR_NAME:" + tokenStatus.getCurrentToken().value +":" + declared_vars[tokenStatus.getCurrentToken().value]["type"])
+            except Exception:
+                undeclared_variable_exception(tokenStatus)
+        elif tokenStatus.getCurrentToken().name == "INTEGER_LITERAL":
+            nums.append(int(tokenStatus.getCurrentToken().value))
+            tokenStatus.expect(binaryOrEnd)
+            print("<int_expression> -> INTEGER_LITERAL:" + tokenStatus.getCurrentToken().value)
+        elif tokenStatus.getCurrentToken().name == "LPAREN":
+            tokenStatus = tokenStatus.goNext()
+            currentToken = tokenStatus.getCurrentToken()
+            priorStatus = tokenStatus
+            print("<int_expression> -> ( <int_expression> )")
+            tokenStatus = int_expression(tokenStatus, ["RPAREN"], False)
+            if tokenStatus == priorStatus:
+                unexpected_char_exception(priorStatus, "<int_expression>")
+
+            nums.append(tokenStatus.value)
+            tokenStatus.expect(binaryOrEnd)
+        elif not pastFirstToken:
+            print("Unexpected token, must not be int_expression")
+            return originalStatus
         else:
-            nums.append(int(i.value))
+            unexpected_char_exception(tokenStatus, "<Integer>")
 
-    #TODO: Replace all recognized varnames with values, throw error on unexpected nonterminal
+        tokenStatus = tokenStatus.goNext()
 
-    for opType in arithmetic_op_names:
+    #All unary ops are in all_arithmetic ops first, will be executed first(for now)
+    for opType in all_arithmetic_op_names:
         numsIndex = 0
         for op in ops:
-            if (op.name == opType):
-                nums[numsIndex] = calculate(nums[numsIndex], nums[numsIndex + 1], op.name)
-                nums.remove(nums[numsIndex + 1])
-            else:
+            if op.name == opType:
+                if op.name in unary_arithmetic_op_names:
+                    nums[numsIndex] = calculate(nums[numsIndex], None, op.name)
+                else:
+                    nums[numsIndex] = calculate(nums[numsIndex], nums[numsIndex + 1], op.name)
+                    nums.remove(nums[numsIndex + 1])
+            elif op.name in binary_arithmetic_op_names:
                 numsIndex += 1
-    print(nums[0])
-    return nums[0]
+        for op in ops:
+            if op.name == opType:
+                ops.remove(op)
 
-
-    # if tokenStatus.getCurrentToken().name == 'INTEGER_LITERAL':
-    #     declared_int = int(tokenStatus.getCurrentToken().value)
-    #     tokenStatus = tokenStatus.goNext()
-    # elif tokenStatus.getCurrentToken().name == 'LPAREN':
-    #     print("<int_expression> -> (<int_expression>) ")
-    #     tokenStatus = tokenStatus.goNext()
-    #     priorTokenStatus = tokenStatus
-    #     tokenStatus = int_expression(tokenStatus)
-    #     declared_int = tokenStatus.value
-    #     if tokenStatus == priorTokenStatus:
-    #         return originalStatus
-    #     if tokenStatus.getCurrentToken().name != 'RPAREN':
-    #         raise unexpected_char_exception(tokenStatus, ")")
-    # elif tokenStatus.getCurrentToken().name == 'VAR_NAME':
-    #     try:
-    #         var = declared_vars[tokenStatus.getCurrentToken().value]
-    #     except:
-    #         undeclared_variable_exception(tokenStatus)
-    #     declared_int = var["value"]
-    # else:
-    #     return originalStatus
-    #
-    # #Checking for
-    # tokenStatus.value = declared_int
-    # return int_expression(tokenStatus)
+    if len(nums) > 1:
+        raise Exception("Incorrect number of arguments!")
+    tokenStatus.value = nums[0]
+    tokenStatus.expect(None)
+    return tokenStatus
 
 '''
 def bool_expression(tokenStatus):
@@ -328,7 +376,10 @@ def arithmetic_op(tokenStatus):
 
     return tokenStatus
 
-arithmetic_op_names = ['MODULO', 'DIVISION', 'MULTIPLICATION', 'MINUS', 'PLUS']
+unary_arithmetic_op_names = ['NEGATIVE']
+binary_arithmetic_op_names = ['MODULO', 'DIVISION', 'MULTIPLICATION', 'MINUS', 'PLUS']
+all_arithmetic_op_names = list(unary_arithmetic_op_names)
+all_arithmetic_op_names.extend(binary_arithmetic_op_names)
 
 def relop(tokenStatus):
     name = tokenStatus.getCurrentToken().name
@@ -356,14 +407,35 @@ def unexpected_char_exception(tokenStatus, expected):
 
 def undeclared_variable_exception(tokenStatus):
     raise Exception("'" + tokenStatus.getCurrentToken().value + "' has not been declared.")
+
+def unaccepted_operand_exception(operator, operands):
+    message = "Operator '" + operator.name + "' not accepted on operand(s) "
+    isFirst = True
+    for operand in operands:
+        if not isFirst:
+            message += ", "
+        message += operand.name
+        isFirst = False
+    raise Exception(message)
+
 #endregion
 
-def getTokensTillTerminal(tokenStatus, terminalTokenNames):
+def getTokensTillTerminal(tokenStatus, terminalTokenNames, useStack = True):
+
     tokens = [tokenStatus.getCurrentToken()]
+    useParenStack = False
+    if terminalTokenNames.__contains__("RPAREN"):
+        useParenStack = True
     tokenIter = tokenStatus
     tokenIter = tokenIter.goNext()
-    while (not (tokenIter.getCurrentToken().name in terminalTokenNames)):
+    parenStack = []
+    while not (tokenIter.getCurrentToken().name in terminalTokenNames) or (useStack and (useParenStack and len(parenStack) > 0)):
         tokens.append(tokenIter.getCurrentToken())
+        if useParenStack:
+            if (tokenIter.getCurrentToken().name == "LPAREN"):
+                parenStack.append(tokenIter.getCurrentToken().name)
+            elif tokenIter.getCurrentToken().name == "RPAREN":
+                parenStack.pop()
         tokenIter = tokenIter.goNext()
 
     return tokens
@@ -372,18 +444,17 @@ def calculate(val1, val2, operator):
     if operator == "MODULO":
         return val1 % val2
     elif operator == "MULTIPLICATION":
-        return val1 * val2;
+        return val1 * val2
     elif operator == "DIVISION":
-        return val1 // val2;
+        return val1 // val2
     elif operator == "PLUS":
         return val1 + val2
     elif operator == "MINUS":
-        if val2 is None:
-            return -val1
-        else:
-            return val1 - val2
+        return val1 - val2
+    elif operator == "NEGATIVE":
+        return -1 * val1
 
-#block(status)
-int_expression(status, "END_INSTRUCTION")
+block(status)
+#int_expression(status, "END_INSTRUCTION")
 for i in declared_vars:
     print(i, declared_vars[i])
