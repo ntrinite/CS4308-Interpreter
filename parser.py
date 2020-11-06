@@ -359,12 +359,16 @@ def boolean(tokenStatus, expectedTerminals):
 
     #Checks the next token for literal, variable, or int_expression
     if tokenStatus.getCurrentToken().name == "BOOLEAN_LITERAL":
-        tokenStatus.value = bool(tokenStatus.getCurrentToken().value)
+        if tokenStatus.getCurrentToken().value == "false":
+            tokenStatus.value = False
+        else:
+            tokenStatus.value = True
+        print(tokenStatus.value)
         tokenStatus = tokenStatus.goNext()
     elif tokenStatus.getCurrentToken().name == "VAR_NAME":
         try:
             if declared_vars[tokenStatus.getCurrentToken().value]["type"] == "Boolean":
-                tokenStatus.value = declared_vars[tokenStatus.getCurrentToken().value]["value"]
+                tokenStatus.value = bool(declared_vars[tokenStatus.getCurrentToken().value]["value"])
                 tokenStatus = tokenStatus.goNext()
             else:
                 unexpected_char_exception(tokenStatus, "<Boolean>")
