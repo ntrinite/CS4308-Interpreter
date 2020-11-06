@@ -1,6 +1,6 @@
 from lex import l
 import TokenStatus as ts
-import rply as rp
+from itertools import chain
 
 file_path = "parser_text_input.txt"
 
@@ -179,8 +179,8 @@ def assignment_statement(tokenStatus, var_name = None):
         tokenStatus = int_expression(tokenStatus, ["END_INSTRUCTION"])
     elif var_type == "String":
         tokenStatus = string_expression(tokenStatus)
-    # elif var_type == "Boolean":
-    #     tokenStatus = bool_expression(tokenStatus)
+    elif var_type == "Boolean":
+        tokenStatus = bool_expression(tokenStatus, ["END_INSTRUCTION"])
     # elif var_type == "Character":
     #     tokenStatus.char_expression(tokenStatus)
     else:
@@ -257,8 +257,12 @@ def int_expression(tokenStatus, expectedTerminals, useStack = True):
 
     # Paren are acceptable becuase it implies returning from another int_expression, which will leave the parenthese
     acceptableNumberTypes = ["VAR_NAME", "INTEGER_LITERAL", "LPAREN"]
-    binaryOrEnd = list(binary_arithmetic_op_names)
-    binaryOrEnd.extend(expectedTerminals)
+    unary = unary_arithmetic_op_names[0]
+
+    #chain.from_iterable converts from being nested to all being in the base level of a list; allows 'in'
+    #to check if in list
+    binary = list(chain.from_iterable(binary_arithmetic_op_names))
+    binaryOrEnd = list(binary).extend(expectedTerminals)
     ops = []
     nums = []
 
@@ -273,18 +277,18 @@ def int_expression(tokenStatus, expectedTerminals, useStack = True):
 
     pastFirstToken = False
     while tokenStatus.getCurrentToken() in expressionTokens:
-        if tokenStatus.getCurrentToken().name in unary_arithmetic_op_names:
-            if not tokenStatus.getNextTokenNotIn(unary_arithmetic_op_names).name in acceptableNumberTypes:
-                unaccepted_operand_exception(tokenStatus.getCurrentToken(), [tokenStatus.getNextTokenNotIn(unary_arithmetic_op_names)])
+        if tokenStatus.getCurrentToken().name in unary:
+            if not tokenStatus.getNextTokenNotIn(unary).name in acceptableNumberTypes:
+                unaccepted_operand_exception(tokenStatus.getCurrentToken(), [tokenStatus.getNextTokenNotIn(unary)])
             else:
                 ops.append(tokenStatus.getCurrentToken())
                 print("<int_expression> -> <unary_arithmetic_op>")
                 print("<unary_arithmetic_op> -> " + tokenStatus.getCurrentToken().name)
-        elif tokenStatus.getCurrentToken().name in binary_arithmetic_op_names:
+        elif tokenStatus.getCurrentToken().name in binary:
             if not pastFirstToken:
                 Exception("Operator '" + i.value + "' not unary")
             elif (not tokenStatus.getPrevToken().name in acceptableNumberTypes and tokenStatus.getPrevToken().name != "RPAREN") \
-                or not tokenStatus.getNextTokenNotIn(unary_arithmetic_op_names).name in acceptableNumberTypes:
+                or not tokenStatus.getNextTokenNotIn(unary).name in acceptableNumberTypes:
                     unaccepted_operand_exception(tokenStatus.getCurrentToken(), [tokenStatus.getPrevToken(), tokenStatus.getNextToken()])
             ops.append(tokenStatus.getCurrentToken())
             print("<int_expression> -> <binary_arithmetic_op>")
@@ -314,6 +318,7 @@ def int_expression(tokenStatus, expectedTerminals, useStack = True):
             nums.append(tokenStatus.value)
             tokenStatus.expect(binaryOrEnd)
         elif not pastFirstToken:
+            currentToken = tokenStatus.getCurrentToken()
             print("Unexpected token, must not be int_expression")
             return originalStatus
         else:
@@ -325,16 +330,16 @@ def int_expression(tokenStatus, expectedTerminals, useStack = True):
     for opType in all_arithmetic_op_names:
         numsIndex = 0
         for op in ops:
-            if op.name == opType:
-                if op.name in unary_arithmetic_op_names:
+            if op.name in opType:
+                if op.name in unary:
                     nums[numsIndex] = calculate(nums[numsIndex], None, op.name)
                 else:
                     nums[numsIndex] = calculate(nums[numsIndex], nums[numsIndex + 1], op.name)
                     nums.remove(nums[numsIndex + 1])
-            elif op.name in binary_arithmetic_op_names:
+            elif op.name in binary:
                 numsIndex += 1
         for op in ops:
-            if op.name == opType:
+            if op.name in opType:
                 ops.remove(op)
 
     if len(nums) > 1:
@@ -343,27 +348,83 @@ def int_expression(tokenStatus, expectedTerminals, useStack = True):
     tokenStatus.expect(None)
     return tokenStatus
 
-'''
-def bool_expression(tokenStatus):
+# <boolean> -> [!](<boolean_literal> | <boolean_var> | <int_expression> <relop> <int_expression>)
+def boolean(tokenStatus, expectedTerminals):
     originalStatus = tokenStatus
-    name = tokenStatus.getCurrentToken().name
 
-    if name  == 'BOOLEAN_LITERAL':
+    hasNot = False
+    if (tokenStatus.getCurrentToken().name == "NOT"):
+        hasNot = True
         tokenStatus = tokenStatus.goNext()
-        return tokenStatus
+
+    #Checks the next token for literal, variable, or int_expression
+    if tokenStatus.getCurrentToken().name == "BOOLEAN_LITERAL":
+        tokenStatus.value = bool(tokenStatus.getCurrentToken().value)
+        tokenStatus = tokenStatus.goNext()
+    elif tokenStatus.getCurrentToken().name == "VAR_NAME":
+        try:
+            if declared_vars[tokenStatus.getCurrentToken().value]["type"] == "Boolean":
+                tokenStatus.value = declared_vars[tokenStatus.getCurrentToken().value]["value"]
+                tokenStatus = tokenStatus.goNext()
+            else:
+                unexpected_char_exception(tokenStatus, "<Boolean>")
+        except:
+            undeclared_variable_exception(tokenStatus)
+    elif tokenStatus.getCurrentToken().name == "LPAREN":
+        tokenStatus = tokenStatus.goNext()
+        priorStatus = tokenStatus
+        tokenStatus = bool_expression(tokenStatus, ["LPAREN"])
+        if tokenStatus == priorStatus:
+            unexpected_char_exception(tokenStatus, "<bool_expression>")
+        tokenStatus.expect(["RPAREN"])
+        tokenStatus = tokenStatus.goNext()
     else:
+        # Tries to parse as int_expression
+        priorStatus = tokenStatus
+        relops = list(chain.from_iterable(binary_relational_op_names))
+        tokenStatus = int_expression(tokenStatus, relops)
+        if tokenStatus == priorStatus:
+            return originalStatus
+
+        firstVal = tokenStatus.value
+        op = tokenStatus.getCurrentToken().name
+        if tokenStatus.getCurrentToken().name not in relops:
+            unexpected_char_exception(tokenStatus, relops)
+        tokenStatus = tokenStatus.goNext()
+        priorStatus = tokenStatus
+        tokenStatus = int_expression(tokenStatus, expectedTerminals)
+        if tokenStatus == priorStatus:
+            unexpected_char_exception(tokenStatus, "<int_expression>")
+        secondVal = tokenStatus.value
+        tokenStatus.value = calculate_relop(firstVal, secondVal, op)
+
+    #Nots that value if it is present
+    if hasNot:
+        tokenStatus.value = calculate_boolop(tokenStatus.value, None, "NOT")
+    return tokenStatus
+
+def bool_expression(tokenStatus, expectedTerminals):
+    originalStatus = tokenStatus
+    tokenStatus = boolean(tokenStatus, expectedTerminals)
+    val1 = tokenStatus.value
+    if tokenStatus == originalStatus:
         return originalStatus
 
-    if name == 'INTEGER_LITERAL':
+    logop = list(chain.from_iterable(binary_logical_op_names))
+    if tokenStatus.getCurrentToken().name in logop:
+        op = tokenStatus.getCurrentToken().name
         tokenStatus = tokenStatus.goNext()
-        #MAY BE ABLE TO USE RELOP STATEMENT INSIDE THIS INSTEAD OF DOING AN IF THING
-        relop()
-    else:
-        return originalStatus
+        priorStatus = tokenStatus
+        tokenStatus = boolean(tokenStatus, expectedTerminals)
+        if tokenStatus == priorStatus:
+            unexpected_char_exception(tokenStatus, "<boolean>")
 
-#SPACE FOR RELOP STUFF IF TOO LAZY TO FIGURE OUT IF I CAN USE RELOP FUNCTION
-    if name == '
-'''
+        val2 = tokenStatus.value
+        tokenStatus.value = calculate_boolop(val1, val2, op)
+
+    return tokenStatus
+
+
 
 #endregion
 
@@ -376,8 +437,13 @@ def arithmetic_op(tokenStatus):
 
     return tokenStatus
 
-unary_arithmetic_op_names = ['NEGATIVE']
-binary_arithmetic_op_names = ['MODULO', 'DIVISION', 'MULTIPLICATION', 'MINUS', 'PLUS']
+
+#Operator names are nested so that groups can be done in the same pass; causes multiplication and modulus to be done
+#left to right while all being done before addition and subtraction
+binary_logical_op_names = [['AND', 'XOR', 'OR']]
+binary_relational_op_names = [['EQUAL_TO', 'INEQUAL_TO', 'LESS_THAN', 'LESS_EQUAL', 'GREATER_THAN', 'GREATER_EQUAL']]
+unary_arithmetic_op_names = [['NEGATIVE']]
+binary_arithmetic_op_names = [['MODULO', 'DIVISION', 'MULTIPLICATION'], ['MINUS', 'PLUS']]
 all_arithmetic_op_names = list(unary_arithmetic_op_names)
 all_arithmetic_op_names.extend(binary_arithmetic_op_names)
 
@@ -420,6 +486,7 @@ def unaccepted_operand_exception(operator, operands):
 
 #endregion
 
+#region Helper Methods
 def getTokensTillTerminal(tokenStatus, terminalTokenNames, useStack = True):
 
     tokens = [tokenStatus.getCurrentToken()]
@@ -453,6 +520,31 @@ def calculate(val1, val2, operator):
         return val1 - val2
     elif operator == "NEGATIVE":
         return -1 * val1
+
+def calculate_boolop(val1, val2, operator):
+    if operator == "AND":
+        return val1 and val2
+    elif operator == "XOR":
+        return val1 != val2
+    elif operator == "OR":
+        return val1 or val2
+    elif operator == "NOT":
+        return not val1
+
+def calculate_relop(val1, val2, operator):
+    if operator == "GREATER_EQUAL":
+        return val1 >= val2
+    elif operator == "LESS_EQUAL":
+        return val1 >= val2
+    elif operator == "GREATER_THAN":
+        return val1 > val2
+    elif operator == "LESS_THAN":
+        return val1 < val2
+    elif operator == "EQUAL_TO":
+        return val1 == val2
+
+
+#endregion
 
 block(status)
 #int_expression(status, "END_INSTRUCTION")
