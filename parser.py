@@ -6,8 +6,6 @@ file_path = "parser_text_input.txt"
 
 file = open(file_path, 'r')
 
-status = []
-
 tokens = list(l.lex(file.read()))
 # for token in tokens:
 #     print(token.value)
@@ -70,25 +68,25 @@ def print_statement(tokenStatus):
     if tokenStatus.getCurrentToken().name == 'LPAREN':
         tokenStatus = tokenStatus.goNext()
     else:
-        unexpected_char_exception(tokenStatus, "(")
+        unexpected_token_exception(tokenStatus, "(")
 
     # checking if the third-plus token is a string expression
     priorTokenStatus = tokenStatus
     tokenStatus = string_expression(tokenStatus)
     if tokenStatus == priorTokenStatus:
-        unexpected_char_exception(tokenStatus, "<string_expression>")
+        unexpected_token_exception(tokenStatus, "<string_expression>")
 
     # checking if the fourth token is a right parentheses
     if tokenStatus.getCurrentToken().name == 'RPAREN':
         tokenStatus = tokenStatus.goNext()
     else:
-        unexpected_char_exception(tokenStatus, ")")
+        unexpected_token_exception(tokenStatus, ")")
 
     # checking if the final token is a semicolon
     if tokenStatus.getCurrentToken().name == 'END_INSTRUCTION':
         return tokenStatus.goNext()
     else:
-        unexpected_char_exception(tokenStatus, ";")
+        unexpected_token_exception(tokenStatus, ";")
 
 # <declaration statement> -> <Var_Name> : <Type_Name> ; | <Var_Name> : <Type_Name> := <expression> ;
 def declaration_statement(tokenStatus):
@@ -111,7 +109,7 @@ def declaration_statement(tokenStatus):
     priorTokenStatus = tokenStatus
     tokenStatus = type_name(tokenStatus)
     if tokenStatus == priorTokenStatus:
-        unexpected_char_exception(tokenStatus, "<TYPE_NAME>")
+        unexpected_token_exception(tokenStatus, "<TYPE_NAME>")
     var_type = tokenStatus.getPrevToken().value
 
     #Assigns the default value for its data type to the variable
@@ -120,15 +118,15 @@ def declaration_statement(tokenStatus):
 
     # checks if the next token is either a semicolon (done) or a walrus (do the partial assignment)
     if tokenStatus.getCurrentToken().name == "END_INSTRUCTION":
-        print("<declaration_statement> -> <var_name> : <type_name> ;")
+        print("<declaration_statement> -> VAR_NAME:" + var_name + " : TYPE_NAME:" + var_type + " ;")
         return tokenStatus.goNext()
     elif tokenStatus.getCurrentToken().name == "ASSIGNMENT":
-        print("<declaration_statement> -> <var_name> : <type_name> := <expression> ;")
+        print("<declaration_statement> -> VAR_NAME:" + var_name + " : TYPE_NAME:" + var_type + " := <expression> ;")
         #Know assignment_statement will go to the halfway; therefore will either throw error or complete, no change check needed
         tokenStatus = assignment_statement(tokenStatus, var_name)
         return tokenStatus
     else:
-        unexpected_char_exception(tokenStatus, ";")
+        unexpected_token_exception(tokenStatus, ";")
 
 
 
@@ -168,7 +166,7 @@ def assignment_statement(tokenStatus, var_name = None):
     if tokenStatus.getCurrentToken().name == "ASSIGNMENT":
         tokenStatus = tokenStatus.goNext()
     else:
-        unexpected_char_exception(tokenStatus, ":=")
+        unexpected_token_exception(tokenStatus, ":=")
 
     var_type = declared_vars[var_name]["type"]
     # Expression must be checked based on the typename
@@ -188,7 +186,7 @@ def assignment_statement(tokenStatus, var_name = None):
 
     #AFTER ANY EXPRESSION, tokenStatus.value SHOULD BE EQUAL TO WHAT THE EXPRESSION EVALUATES AS
     if tokenStatus == priorTokenStatus:
-        unexpected_char_exception(tokenStatus, "<" + var_type + ">")
+        unexpected_token_exception(tokenStatus, "<" + var_type + ">")
 
     #Updates the stored value of the variables
     declared_vars[var_name] = {"type": var_type, "value":  tokenStatus.value}
@@ -197,7 +195,7 @@ def assignment_statement(tokenStatus, var_name = None):
     if tokenStatus.getCurrentToken().name == "END_INSTRUCTION":
         return tokenStatus.goNext()
     else:
-        unexpected_char_exception(tokenStatus, ";")
+        unexpected_token_exception(tokenStatus, ";")
 
 #endregion
 
@@ -252,8 +250,11 @@ def int_expression(tokenStatus, expectedTerminals, useStack = True):
     :return: modified tokenStatus
     """
     originalStatus = tokenStatus
-
-    expressionTokens = getTokensTillTerminal(tokenStatus, expectedTerminals, useStack)
+    lhs = "<int_expression> -> "
+    try:
+        expressionTokens = getTokensTillTerminal(tokenStatus, expectedTerminals, useStack)
+    except Exception:
+        return originalStatus
 
     # Paren are acceptable becuase it implies returning from another int_expression, which will leave the parenthese
     acceptableNumberTypes = ["VAR_NAME", "INTEGER_LITERAL", "LPAREN"]
@@ -265,6 +266,7 @@ def int_expression(tokenStatus, expectedTerminals, useStack = True):
     binaryOrEnd = list(binary).extend(expectedTerminals)
     ops = []
     nums = []
+    num_strings = []
 
     #Checks if it should convert any binary minuses into unary negatives
     pastFirstToken = False
@@ -286,7 +288,7 @@ def int_expression(tokenStatus, expectedTerminals, useStack = True):
                 print("<unary_arithmetic_op> -> " + tokenStatus.getCurrentToken().name)
         elif tokenStatus.getCurrentToken().name in binary:
             if not pastFirstToken:
-                Exception("Operator '" + i.value + "' not unary")
+                Exception("Operator '" + tokenStatus.getCurrentToken().value + "' not unary")
             elif (not tokenStatus.getPrevToken().name in acceptableNumberTypes and tokenStatus.getPrevToken().name != "RPAREN") \
                 or not tokenStatus.getNextTokenNotIn(unary).name in acceptableNumberTypes:
                     unaccepted_operand_exception(tokenStatus.getCurrentToken(), [tokenStatus.getPrevToken(), tokenStatus.getNextToken()])
@@ -296,14 +298,17 @@ def int_expression(tokenStatus, expectedTerminals, useStack = True):
         elif tokenStatus.getCurrentToken().name == "VAR_NAME":
             try:
                 if declared_vars[tokenStatus.getCurrentToken().value]["type"] != "Integer":
-                    unexpected_char_exception(tokenStatus, "<Integer>")
-                nums.append(declared_vars[tokenStatus.getCurrentToken().value]["value"])
+                    incorrect_variable_type_exception(tokenStatus, "<Integer>")
+                val = declared_vars[tokenStatus.getCurrentToken().value]["value"]
+                nums.append(val)
+                num_strings.append(str(val))
                 tokenStatus.expect(binaryOrEnd)
-                print("<int_expression> -> VAR_NAME:" + tokenStatus.getCurrentToken().value +":" + declared_vars[tokenStatus.getCurrentToken().value]["type"])
+                print("<int_expression> -> VAR_NAME:" + tokenStatus.getCurrentToken().value +":" + declared_vars[tokenStatus.getCurrentToken().value]["type"] + ":" + str(declared_vars[tokenStatus.getCurrentToken().value]["value"]))
             except Exception:
                 undeclared_variable_exception(tokenStatus)
         elif tokenStatus.getCurrentToken().name == "INTEGER_LITERAL":
             nums.append(int(tokenStatus.getCurrentToken().value))
+            num_strings.append(tokenStatus.getCurrentToken().value)
             tokenStatus.expect(binaryOrEnd)
             print("<int_expression> -> INTEGER_LITERAL:" + tokenStatus.getCurrentToken().value)
         elif tokenStatus.getCurrentToken().name == "LPAREN":
@@ -313,29 +318,34 @@ def int_expression(tokenStatus, expectedTerminals, useStack = True):
             print("<int_expression> -> ( <int_expression> )")
             tokenStatus = int_expression(tokenStatus, ["RPAREN"], False)
             if tokenStatus == priorStatus:
-                unexpected_char_exception(priorStatus, "<int_expression>")
+                unexpected_token_exception(priorStatus, "<int_expression>")
 
             nums.append(tokenStatus.value)
+            num_strings.append(tokenStatus.message)
             tokenStatus.expect(binaryOrEnd)
         elif not pastFirstToken:
             currentToken = tokenStatus.getCurrentToken()
             print("Unexpected token, must not be int_expression")
             return originalStatus
         else:
-            unexpected_char_exception(tokenStatus, "<Integer>")
+            unexpected_token_exception(tokenStatus, "<Integer>")
 
         tokenStatus = tokenStatus.goNext()
 
     #All unary ops are in all_arithmetic ops first, will be executed first(for now)
+    #going to track tree by using a mirroring list
     for opType in all_arithmetic_op_names:
         numsIndex = 0
         for op in ops:
             if op.name in opType:
                 if op.name in unary:
                     nums[numsIndex] = calculate(nums[numsIndex], None, op.name)
+                    num_strings[numsIndex] = op.value + "(" + num_strings[numsIndex] + ")"
                 else:
                     nums[numsIndex] = calculate(nums[numsIndex], nums[numsIndex + 1], op.name)
                     nums.remove(nums[numsIndex + 1])
+                    num_strings[numsIndex] = op.value + "(" + num_strings[numsIndex] + "," + num_strings[numsIndex + 1] + ")"
+                    num_strings.remove(num_strings[numsIndex + 1])
             elif op.name in binary:
                 numsIndex += 1
         for op in ops:
@@ -345,6 +355,8 @@ def int_expression(tokenStatus, expectedTerminals, useStack = True):
     if len(nums) > 1:
         raise Exception("Incorrect number of arguments!")
     tokenStatus.value = nums[0]
+    tokenStatus.message = num_strings[0]
+    print(lhs + num_strings[0])
     tokenStatus.expect(None)
     return tokenStatus
 
@@ -352,10 +364,12 @@ def int_expression(tokenStatus, expectedTerminals, useStack = True):
 def boolean(tokenStatus, expectedTerminals):
     originalStatus = tokenStatus
 
+    lhs = "<boolean> -> "
     hasNot = False
     if (tokenStatus.getCurrentToken().name == "NOT"):
         hasNot = True
         tokenStatus = tokenStatus.goNext()
+        lhs = lhs + "not "
 
     #Checks the next token for literal, variable, or int_expression
     if tokenStatus.getCurrentToken().name == "BOOLEAN_LITERAL":
@@ -363,69 +377,92 @@ def boolean(tokenStatus, expectedTerminals):
             tokenStatus.value = False
         else:
             tokenStatus.value = True
-        print(tokenStatus.value)
+        print(lhs + "BOOLEAN_LITERAL:" + tokenStatus.getCurrentToken().value)
+        message = tokenStatus.getCurrentToken().value
         tokenStatus = tokenStatus.goNext()
+
     elif tokenStatus.getCurrentToken().name == "VAR_NAME":
         try:
             if declared_vars[tokenStatus.getCurrentToken().value]["type"] == "Boolean":
                 tokenStatus.value = bool(declared_vars[tokenStatus.getCurrentToken().value]["value"])
+                message = declared_vars[tokenStatus.getCurrentToken().value]["value"]
                 tokenStatus = tokenStatus.goNext()
             else:
-                unexpected_char_exception(tokenStatus, "<Boolean>")
+                incorrect_variable_type_exception(tokenStatus, "<Boolean>")
         except:
             undeclared_variable_exception(tokenStatus)
     elif tokenStatus.getCurrentToken().name == "LPAREN":
         tokenStatus = tokenStatus.goNext()
         priorStatus = tokenStatus
+        print(lhs + " (<bool_expression>)")
         tokenStatus = bool_expression(tokenStatus, ["LPAREN"])
+        message = tokenStatus.message
         if tokenStatus == priorStatus:
-            unexpected_char_exception(tokenStatus, "<bool_expression>")
+            unexpected_token_exception(tokenStatus, "<bool_expression>")
         tokenStatus.expect(["RPAREN"])
         tokenStatus = tokenStatus.goNext()
     else:
         # Tries to parse as int_expression
         priorStatus = tokenStatus
         relops = list(chain.from_iterable(binary_relational_op_names))
+        print(lhs + "<int_expression> <relop> <int_expression>")
         tokenStatus = int_expression(tokenStatus, relops)
         if tokenStatus == priorStatus:
             return originalStatus
 
         firstVal = tokenStatus.value
+        message = tokenStatus.message
         op = tokenStatus.getCurrentToken().name
         if tokenStatus.getCurrentToken().name not in relops:
-            unexpected_char_exception(tokenStatus, relops)
+            unexpected_token_exception(tokenStatus, relops)
+        print("<relop> -> " + op)
         tokenStatus = tokenStatus.goNext()
         priorStatus = tokenStatus
         tokenStatus = int_expression(tokenStatus, expectedTerminals)
         if tokenStatus == priorStatus:
-            unexpected_char_exception(tokenStatus, "<int_expression>")
+            unexpected_token_exception(tokenStatus, "<int_expression>")
         secondVal = tokenStatus.value
         tokenStatus.value = calculate_relop(firstVal, secondVal, op)
+        message = op + "(" + message + "," + tokenStatus.message + ")"
 
     #Nots that value if it is present
     if hasNot:
         tokenStatus.value = calculate_boolop(tokenStatus.value, None, "NOT")
+        message = "NOT(" + message + ")"
+
+    tokenStatus.message = message
     return tokenStatus
 
 def bool_expression(tokenStatus, expectedTerminals):
     originalStatus = tokenStatus
-    tokenStatus = boolean(tokenStatus, expectedTerminals)
+    lhs = "<bool_expression> -> "
+    print("<bool_expression> -> <boolean>")
+    logop = list(chain.from_iterable(binary_logical_op_names))
+    firstTerminals = logop
+    firstTerminals.extend(expectedTerminals)
+    tokenStatus = boolean(tokenStatus, firstTerminals)
     val1 = tokenStatus.value
+    message = tokenStatus.message
     if tokenStatus == originalStatus:
         return originalStatus
 
     logop = list(chain.from_iterable(binary_logical_op_names))
     if tokenStatus.getCurrentToken().name in logop:
         op = tokenStatus.getCurrentToken().name
+        print("<bool_expression> -> <boolean> LOGOP:" + op + " <boolean>")
         tokenStatus = tokenStatus.goNext()
         priorStatus = tokenStatus
         tokenStatus = boolean(tokenStatus, expectedTerminals)
         if tokenStatus == priorStatus:
-            unexpected_char_exception(tokenStatus, "<boolean>")
+            unexpected_token_exception(tokenStatus, "<boolean>")
 
         val2 = tokenStatus.value
+        message = str(op) + "(" + str(message) + "," + str(tokenStatus.message) + ")"
         tokenStatus.value = calculate_boolop(val1, val2, op)
 
+
+    print(lhs + message)
+    tokenStatus.message = message
     return tokenStatus
 
 
@@ -472,11 +509,14 @@ def type_name(tokenStatus):
 #endregion
 
 #region Exceptions
-def unexpected_char_exception(tokenStatus, expected):
+def unexpected_token_exception(tokenStatus, expected):
     raise Exception("Expected '" + expected + "' at " + str(tokenStatus.getCurrentToken().source_pos) + ", received '" + tokenStatus.getCurrentToken().value + "'")
 
 def undeclared_variable_exception(tokenStatus):
     raise Exception("'" + tokenStatus.getCurrentToken().value + "' has not been declared.")
+
+def incorrect_variable_type_exception(tokenStatus, expectedType):
+    raise Exception("Expected '" + tokenStatus.getCurrentToken().value + "' to have type '" + expectedType, "', found type <" + declared_vars[tokenStatus.getCurrentToken().value]["type"] + ">")
 
 def unaccepted_operand_exception(operator, operands):
     message = "Operator '" + operator.name + "' not accepted on operand(s) "

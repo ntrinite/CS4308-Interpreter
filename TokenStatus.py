@@ -1,9 +1,10 @@
 class TokenStatus:
 
-    def __init__(self, tokens, index=0, value=None):
+    def __init__(self, tokens, index=0, value=None, message=None):
         self.tokens = tokens
         self.tokenIndex = index
         self.value = value
+        self.message = message
         self.expected = None
 
     def getCurrentToken(self):
@@ -40,7 +41,7 @@ class TokenStatus:
     def goNext(self):
         if self.expected is not None and not self.expected.__contains__(self.getNextToken().name):
             raise Exception("Expected " + str(self.expected) + " at " + str(self.getNextToken().source_pos) + ", received " + str(self.getNextToken().value))
-        newStatus = TokenStatus(self.tokens, self.tokenIndex + 1, self.value)
+        newStatus = TokenStatus(self.tokens, self.tokenIndex + 1, self.value, self.message)
         # if self.getNextToken() is None:
         #     raise Exception("Unexpected end of file after " + str(self.tokens[self.tokenIndex]))
         return newStatus

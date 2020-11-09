@@ -1,0 +1,2 @@
+sweenis : Integer := 25;
+bob : Boolean := not 5 < sweenis or true;
