@@ -49,6 +49,7 @@ lg.add("END_INSTRUCTION", r";")
 lg.add("PROCEDURE_DECLARATION", r"procedure")
 lg.add("IS", r"is")
 lg.add("APOSTROPHE_OPERATOR", r"\'")
+lg.add("IMAGE", r"Image")
 lg.add("DOT_OPERATOR", r"\.")
 lg.add("VAR_NAME", r"[a-zA-Z_][a-zA-Z0-9_]*")
 

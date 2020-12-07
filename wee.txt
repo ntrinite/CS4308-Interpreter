@@ -1,2 +1,3 @@
 sweenis : Integer := 25;
-bob : Boolean := not 5 < sweenis or true;
+neemis : String := Integer'Image(sweenis);
+Put_Line(neemis);

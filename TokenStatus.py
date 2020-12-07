@@ -46,5 +46,6 @@ class TokenStatus:
         #     raise Exception("Unexpected end of file after " + str(self.tokens[self.tokenIndex]))
         return newStatus
 
+    #Will throw an exception if next token's name is not in name
     def expect(self, name):
         self.expected = name
