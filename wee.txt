@@ -1,3 +1,0 @@
-sweenis : Integer := 25;
-neemis : String := Integer'Image(sweenis);
-Put_Line(neemis);

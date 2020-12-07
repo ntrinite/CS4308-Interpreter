@@ -31,6 +31,10 @@ class ParserBoi:
     def parse(self, as_parser=True):
         self.block(self.status, as_parser)
 
+    def show_declared_vars(self):
+        for i in self.declared_vars:
+            print(i, self.declared_vars[i])
+
     #block needs some way to exit; isn't end all be all of all code
     def block(self, tokenStatus, as_parser = True):
         global parsing
@@ -46,7 +50,7 @@ class ParserBoi:
         try:
             tokenStatus.getCurrentToken()
         except(Exception):
-            print("\n\nReached end of file")
+            print("\nReached end of file\n")
             return tokenStatus
 
         # if tokenStatus.getCurrentToken() != None:
@@ -260,7 +264,7 @@ class ParserBoi:
                 return originalStatus
         # If converting from number into string
         # Might add floats later
-        elif tokenStatus.getCurrentToken().name in ['INTEGER_TYPENAME']:
+        elif tokenStatus.getCurrentToken().name in ['INTEGER_TYPENAME', 'FLOAT_TYPENAME']:
             try:
                 type = tokenStatus.getCurrentToken().name
                 tokenStatus.expect(["APOSTROPHE_OPERATOR"])
@@ -665,6 +669,3 @@ class ParserBoi:
 
     # block(status, False)
     # #int_expression(status, "END_INSTRUCTION")
-    #
-    # for i in declared_vars:
-    #     print(i, declared_vars[i])
