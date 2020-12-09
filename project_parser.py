@@ -264,7 +264,7 @@ class ParserBoi:
                 return originalStatus
         # If converting from number into string
         # Might add floats later
-        elif tokenStatus.getCurrentToken().name in ['INTEGER_TYPENAME', 'FLOAT_TYPENAME']:
+        elif tokenStatus.getCurrentToken().name in ['INTEGER_TYPENAME', 'FLOAT_TYPENAME', 'BOOLEAN_TYPENAME']:
             try:
                 type = tokenStatus.getCurrentToken().name
                 tokenStatus.expect(["APOSTROPHE_OPERATOR"])
@@ -278,12 +278,15 @@ class ParserBoi:
             tokenStatus.expect(["LPAREN"])
             tokenStatus = tokenStatus.goNext()
             priorTokenStatus = tokenStatus
-            tokenStatus = self.int_expression(tokenStatus, expectedTerminals="RPAREN")
+            if type == "INTEGER_TYPENAME":
+                tokenStatus = self.int_expression(tokenStatus, expectedTerminals="RPAREN")
+            elif type == "BOOLEAN_TYPENAME":
+                tokenStatus = self.bool_expression(tokenStatus, expectedTerminals="RPAREN")
             if priorTokenStatus == tokenStatus:
                 self.unexpected_token_exception(tokenStatus, "<int_expression>")
             string = str(tokenStatus.value)
             if parsing:
-                print("<string_expression> -> " + type + "'Image(<num_expression)")
+                print("<string_expression> -> " + type + "'Image(<num_expression>)")
         else:
             return originalStatus
 
@@ -466,7 +469,8 @@ class ParserBoi:
         elif tokenStatus.getCurrentToken().name == "LPAREN":
             tokenStatus = tokenStatus.goNext()
             priorStatus = tokenStatus
-            print(lhs + " (<bool_expression>)")
+            if parsing:
+                print(lhs + " (<bool_expression>)")
             tokenStatus = self.bool_expression(tokenStatus, ["LPAREN"])
             message = tokenStatus.message
             if tokenStatus == priorStatus:

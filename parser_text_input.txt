@@ -1,13 +1,1 @@
-Put_Line("Gaming");
-Put_Line("More Gaming");
-Put_Line("Surprise Surprise" & "Yet More Gaming");
-beenis : Integer := (2 --3) * 5 + -(-(-(-5)));
-sleenis : String := "Pokemon, " & "Gotta catch em all!";
-paula_deenis : String := sleenis & " Oooooo you're my best friend";
-sleenis := "Weeeeeyoooo";
-neil_breenis : Boolean := 5 + 5 * 5 < (5 + 5) * 5;
-queenis : Boolean := false and neil_breenis;
-i_m_meenis : Boolean := false xor true;
-my_spleenis : Boolean := true xor true;
-weenis : Float;
-Put_Line(sleenis);
+Put_Line(Boolean'Image(true));
